@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlindView – Currency Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #03030c;
+            --surface: #0a0a18;
+            --card: rgba(18, 18, 34, 0.95);
+            --border: rgba(45, 212, 191, 0.22);
+            --accent: #2dd4bf;
+            --accent2: #a78bfa;
+            --green: #34d399;
+            --red: #fb7185;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* ---- ULTRA WIDE GLOW ---- */
+        .glow-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(180px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.65;
+        }
+        .glow-orb.left {
+            width: 820px; height: 820px;
+            background: rgba(45, 212, 191, 0.13);
+            top: -300px; left: -180px;
+        }
+        .glow-orb.right {
+            width: 720px; height: 720px;
+            background: rgba(167, 139, 250, 0.11);
+            bottom: -260px; right: -140px;
+        }
+
+        /* ---- GLASSMORPHISM ---- */
+        .glass {
+            background: var(--card);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(28px);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45);
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 2;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 48px 32px 100px;
+            max-width: 1280px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* ---- HEADER ---- */
+        .header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 48px;
+            animation: fadeDown 0.9s cubic-bezier(0.23, 1, 0.32, 1) both;
+        }
+
+        .logo-brand {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .logo-ring {
+            width: 78px; height: 78px;
+            border-radius: 50%;
+            border: 3.5px solid var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 60px rgba(45, 212, 191, 0.45);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .logo-ring:hover { transform: scale(1.12) rotate(8deg); }
+
+        .logo-ring svg {
+            width: 38px; height: 38px;
+            stroke: var(--accent);
+        }
+
+        .brand h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: 2.75rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .brand p {
+            font-size: 0.88rem;
+            color: var(--muted);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 500;
+            margin-top: -4px;
+        }
+
+        /* ---- MAIN WIDE GRID (THE REAL WIDE MAGIC) ---- */
+        .main-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+            animation: fadeUp 0.9s 0.1s cubic-bezier(0.23, 1, 0.32, 1) both;
+        }
+
+        @media (min-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1.05fr 1fr;
+                gap: 56px;
+            }
+        }
+
+        /* ---- CAMERA PREVIEW (LEFT COLUMN ON WIDE) ---- */
+        .camera-preview {
+            border-radius: 32px;
+            overflow: hidden;
+            height: fit-content;
+        }
+
+        .preview-frame {
+            position: relative;
+            aspect-ratio: 1.38 / 1;
+            background: rgba(15, 23, 42, 0.75);
+            border: 4px dashed var(--accent);
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            color: var(--muted);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .preview-frame:hover {
+            border-color: var(--accent2);
+            box-shadow: 0 0 0 12px rgba(45, 212, 191, 0.18);
+        }
+
+        .preview-frame svg {
+            width: 64px; height: 64px;
+            stroke: var(--accent);
+        }
+
+        .preview-text {
+            font-size: 1.18rem;
+            font-weight: 600;
+            color: var(--text);
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        .preview-hint {
+            font-size: 0.85rem;
+            padding: 6px 20px;
+            background: rgba(45, 212, 191, 0.12);
+            border-radius: 9999px;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        /* ---- RIGHT COLUMN – STATUS + CONTROLS ---- */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        /* Status Card */
+        .status-card {
+            padding: 36px 32px;
+            border-radius: 28px;
+        }
+
+        .status-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .status-display {
+            display: flex;
+            align-items: center;
+            gap: 22px;
+        }
+
+        .status-dot {
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            background: var(--muted);
+            flex-shrink: 0;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .status-dot::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 2.5px solid var(--accent);
+            opacity: 0;
+        }
+        .status-dot.scanning::after {
+            animation: ping 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
+            opacity: 0.65;
+        }
+        .status-dot.real { background: var(--green); box-shadow: 0 0 28px rgba(52, 211, 153, 0.75); }
+        .status-dot.fake { background: var(--red); box-shadow: 0 0 28px rgba(251, 113, 133, 0.75); }
+        .status-dot.scanning { background: var(--accent); box-shadow: 0 0 34px rgba(45, 212, 191, 0.85); }
+
+        .status-text {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.85rem;
+            font-weight: 700;
+            line-height: 1.15;
+            transition: all 0.4s;
+        }
+        .status-text.real { color: var(--green); }
+        .status-text.fake { color: var(--red); }
+
+        /* Denomination Badge */
+        .denom-badge {
+            margin-top: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(45, 212, 191, 0.09);
+            border: 1px solid rgba(45, 212, 191, 0.32);
+            border-radius: 9999px;
+            padding: 12px 30px;
+            font-family: 'Syne', sans-serif;
+            font-size: 1.38rem;
+            font-weight: 700;
+            color: var(--accent);
+            opacity: 0;
+            transform: scale(0.88) translateY(16px);
+            transition: all 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .denom-badge.visible {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        /* Scan Button */
+        .scan-section {
+            animation: fadeUp 0.9s 0.2s cubic-bezier(0.23, 1, 0.32, 1) both;
+        }
+
+        .scan-btn {
+            width: 100%;
+            padding: 26px 32px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #03030c;
+            border: none;
+            border-radius: 26px;
+            font-family: 'Syne', sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            box-shadow: 0 18px 60px rgba(45, 212, 191, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scan-btn:hover {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 26px 80px rgba(45, 212, 191, 0.55);
+        }
+
+        .scan-btn:active { transform: scale(0.97); }
+
+        .scan-btn svg {
+            width: 32px; height: 32px;
+            stroke: #03030c;
+            stroke-width: 2.6;
+        }
+
+        .scan-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -150%;
+            width: 70%;
+            height: 300%;
+            background: linear-gradient(120deg, transparent, rgba(255,255,255,0.6), transparent);
+            transform: skewX(-25deg);
+            animation: shine 3.8s linear infinite;
+        }
+
+        /* ---- INFO CARDS (FULL WIDTH BELOW) ---- */
+        .info-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 20px;
+            animation: fadeUp 0.9s 0.3s cubic-bezier(0.23, 1, 0.32, 1) both;
+        }
+
+        .info-card {
+            padding: 28px;
+            border-radius: 24px;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .info-card:hover { transform: translateY(-10px); }
+
+        .info-card .ic-icon {
+            width: 56px; height: 56px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        .info-card.green .ic-icon { background: rgba(52, 211, 153, 0.16); }
+        .info-card.red .ic-icon { background: rgba(251, 113, 133, 0.16); }
+
+        .info-card .ic-icon svg { width: 28px; stroke-width: 2.3; }
+        .info-card.green .ic-icon svg { stroke: var(--green); }
+        .info-card.red .ic-icon svg { stroke: var(--red); }
+
+        .info-card .ic-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.18rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .info-card.green .ic-title { color: var(--green); }
+        .info-card.red .ic-title { color: var(--red); }
+
+        .info-card .ic-desc {
+            font-size: 0.88rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* ---- ACCESSIBILITY TIP & FOOTER ---- */
+        .a11y-tip {
+            width: 100%;
+            margin-top: 32px;
+            padding: 24px 32px;
+            border-radius: 24px;
+            display: flex;
+            gap: 20px;
+            animation: fadeUp 0.9s 0.4s cubic-bezier(0.23, 1, 0.32, 1) both;
+        }
+
+        .footer {
+            margin-top: auto;
+            padding-top: 48px;
+            text-align: center;
+            font-size: 0.86rem;
+            color: var(--muted);
+        }
+        .footer span { color: var(--accent); }
+
+        /* ---- SCANNING OVERLAY ---- */
+        .scan-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(3, 3, 12, 0.97);
+            z-index: 200;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 36px;
+        }
+        .scan-overlay.active { display: flex; }
+
+        .scan-frame {
+            width: 340px;
+            height: 240px;
+            border: 5px solid rgba(45, 212, 191, 0.35);
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.7);
+        }
+
+        .scan-line {
+            position: absolute;
+            left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            box-shadow: 0 0 25px var(--accent);
+            animation: scanMove 1.75s linear infinite;
+        }
+
+        .scan-overlay p {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        /* ---- KEYFRAMES ---- */
+        @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(-40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ping {
+            75%, 100% { transform: scale(2.6); opacity: 0; }
+        }
+        @keyframes scanMove {
+            0% { top: 8%; }
+            100% { top: 88%; }
+        }
+        @keyframes shine {
+            0% { transform: translateX(-180%) skewX(-25deg); }
+            20% { transform: translateX(320%) skewX(-25deg); }
+            100% { transform: translateX(320%) skewX(-25deg); }
+        }
+
+        /* Focus */
+        .scan-btn:focus-visible {
+            outline: 6px solid var(--accent);
+            outline-offset: 10px;
+        }
+
+        @media (min-width: 1280px) {
+            .wrapper { padding-left: 48px; padding-right: 48px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="glow-orb left"></div>
+<div class="glow-orb right"></div>
+
+<!-- SCANNING OVERLAY -->
+<div class="scan-overlay" id="scanOverlay" aria-live="polite" aria-label="Scanning currency note">
+    <div class="scan-frame glass">
+        <div class="scan-line"></div>
+    </div>
+    <p>Analyzing note...</p>
+</div>
+
+<div class="wrapper">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="logo-brand">
+            <div class="logo-ring" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>
+                </svg>
+            </div>
+            <div class="brand">
+                <h1>Faith<span>currency</span></h1>
+                <p>CURRENCY AUTHENTICITY DETECTOR</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- WIDE TWO-COLUMN GRID -->
+    <div class="main-grid">
+
+        <!-- CAMERA PREVIEW (Left on wide screens) -->
+        <div class="camera-preview glass">
+            <div class="preview-frame">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <div class="preview-text">Position Indian currency note here</div>
+                <div class="preview-hint">Flat • Well-lit • Centered</div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Status + Button -->
+        <div class="right-column">
+
+            <!-- Status Card -->
+            <div class="status-card glass" role="status" aria-live="polite">
+                <div class="status-label">DETECTION STATUS</div>
+                <div class="status-display">
+                    <div class="status-dot" id="statusDot"></div>
+                    <div class="status-text" id="statusText">Ready to scan</div>
+                </div>
+                <div class="denom-badge" id="denomBadge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <span id="denomText">—</span>
+                </div>
+            </div>
+
+            <!-- Scan Button -->
+            <div class="scan-section">
+                <form action="/run_script" method="POST" id="scanForm">
+                    <button type="submit" class="scan-btn glass" id="scanBtn"
+                            aria-label="Start scanning currency note"
+                            onclick="startScan(event)">
+                        <div class="btn-inner">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 9V6a1 1 0 0 1 1-1h3M15 5h3a1 1 0 0 1 1 1v3M21 15v3a1 1 0 0 1-1 1h-3M9 19H6a1 1 0 0 1-1-1v-3"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            SCAN NOTE
+                        </div>
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="info-grid" aria-label="Detection guide">
+        <div class="info-card glass green">
+            <div class="ic-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <div class="ic-title">Real Note</div>
+            <div class="ic-desc">Voice announces denomination + confirms it is genuine.</div>
+        </div>
+        <div class="info-card glass red">
+            <div class="ic-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <div class="ic-title">Fake Note</div>
+            <div class="ic-desc">Instant alert tone + voice warning of counterfeit.</div>
+        </div>
+    </div>
+
+    <!-- Accessibility Tip -->
+    <div class="a11y-tip glass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:28px; color:var(--accent); flex-shrink:0;">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4M12 8h.01"/>
+        </svg>
+        <p><strong>Voice-guided:</strong> Hold note inside the frame and tap SCAN NOTE. Result spoken aloud instantly.</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Built for accessibility • Powered by <span>NSSPTC</span></p>
+    </div>
+
+</div>
+
+<script>
+    function startScan(e) {
+        const btn = document.getElementById('scanBtn');
+        const ripple = document.createElement('span');
+        ripple.style.position = 'absolute';
+        ripple.style.borderRadius = '50%';
+        ripple.style.background = 'rgba(255,255,255,0.55)';
+        ripple.style.transform = 'scale(0)';
+        ripple.style.animation = 'ripple 0.75s linear';
+        const rect = btn.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height) * 1.8;
+        ripple.style.width = ripple.style.height = size + 'px';
+        ripple.style.left = (e.clientX - rect.left - size/2) + 'px';
+        ripple.style.top = (e.clientY - rect.top - size/2) + 'px';
+        btn.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 850);
+
+        document.getElementById('scanOverlay').classList.add('active');
+
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        dot.className = 'status-dot scanning';
+        txt.className = 'status-text';
+        txt.textContent = 'Scanning...';
+    }
+
+    // Handle Flask result
+    const result = "{{ result | default('') }}";
+    const denomination = "{{ denomination | default('') }}";
+
+    if (result === 'real') {
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        const badge = document.getElementById('denomBadge');
+        const denomTxt = document.getElementById('denomText');
+        dot.className = 'status-dot real';
+        txt.className = 'status-text real';
+        txt.textContent = '✓ Genuine Note';
+        if (denomination) {
+            denomTxt.textContent = denomination + ' Rupees';
+            badge.classList.add('visible');
+        }
+    } else if (result === 'fake') {
+        const dot = document.getElementById('statusDot');
+        const txt = document.getElementById('statusText');
+        const badge = document.getElementById('denomBadge');
+        const denomTxt = document.getElementById('denomText');
+        dot.className = 'status-dot fake';
+        txt.className = 'status-text fake';
+        txt.textContent = '⚠ Counterfeit';
+        if (denomination) {
+            denomTxt.textContent = denomination + ' Rupees';
+            badge.classList.add('visible');
+        }
+    }
+
+    if (result) {
+        setTimeout(() => {
+            document.getElementById('scanOverlay').classList.remove('active');
+        }, 900);
+    }
+</script>
+
+</body>
+</html>
