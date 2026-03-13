@@ -4,6 +4,7 @@ import time
 import imutils
 import pyttsx3
 import threading
+import tensorflow as tf
 
 # -------------------- VOICE ENGINE --------------------
 engine = pyttsx3.init()
@@ -19,6 +20,9 @@ net = cv2.dnn.readNet(
     "yolov4-tiny-custom_final.weights",
     "yolov4-tiny-custom.cfg"
 )
+
+# -------------------- LOAD REAL/FAKE MODEL --------------------
+rf_model = tf.keras.models.load_model("RealFake_Model.h5")
 
 classes = []
 with open("classes.names", "r") as f:
@@ -136,6 +140,7 @@ while True:
     indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.6, 0.4)
 
     detected_label = ""
+    best_roi = None
 
     # -------------------- DRAW BOX --------------------
     if len(indexes) > 0:
@@ -153,6 +158,14 @@ while True:
                 color,
                 3
             )
+            
+            # Extract ROI for Real/Fake Classification
+            x_start = max(0, x)
+            y_start = max(0, y)
+            x_end = min(width, x + w)
+            y_end = min(height, y + h)
+            if y_end > y_start and x_end > x_start:
+                best_roi = frame[y_start:y_end, x_start:x_end]
 
             cv2.putText(
                 frame,
@@ -178,16 +191,31 @@ while True:
         if stable_count >= required_stable_frames and (current_time - last_spoken_time) > cooldown:
             try:
                 value = int(detected_label)
+                
+                status_text = "real"
+                if best_roi is not None:
+                    # Preprocess for the custom model
+                    roi_resized = cv2.resize(best_roi, (224, 224))
+                    roi_normalized = roi_resized / 255.0
+                    roi_expanded = np.expand_dims(roi_normalized, axis=0)
+                    
+                    # Output shape is (None, 1) where > 0.5 is Real
+                    prediction = rf_model.predict(roi_expanded, verbose=0)[0][0]
+                    if prediction < 0.5:
+                        status_text = "fake"
+                    else:
+                        status_text = "real"
 
                 threading.Thread(
                     target=speak,
-                    args=(f"{value} rupees detected and it is real",)
+                    args=(f"{value} rupees detected and it is {status_text}",)
                 ).start()
 
                 last_spoken_time = current_time
                 stable_count = 0
 
-            except:
+            except Exception as e:
+                print("Error in voice/classification logic:", e)
                 pass
     else:
         stable_count = 0
